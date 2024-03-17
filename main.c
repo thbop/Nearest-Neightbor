@@ -10,6 +10,10 @@ double noise( int seed, double x ) {
     return frac( sin( x * 209.2342 ) * seed * 839.7301 );
 }
 
+double step( double v, double size ) {
+    return round( v / size ) * size;
+}
+
 struct vec3 {
     double x, y, z;
 } typedef vec3;
@@ -23,6 +27,14 @@ vec3 v3noise( int seed, double x ) {
         noise( seed, x ),
         noise( seed+153, x+238 ),
         noise( seed+234, x+851 )
+    };
+}
+
+vec3 v3step( vec3 v, double size ) {
+    return (vec3){
+        step( v.x, size ),
+        step( v.y, size ),
+        step( v.z, size )
     };
 }
 
@@ -76,6 +88,21 @@ vec3 nearest_neighbor_linear( v3buffer buffer, vec3 v ) {
     }
     return nearest;
 }
+
+// A buffer with a position
+struct v3chunk {
+    vec3 position;
+    v3buffer buffer;
+} typedef v3chunk;
+
+void free_chunk( v3chunk chunk ) {
+    free_buffer( chunk.buffer );
+}
+
+struct v3space {
+    v3chunk* chunks;
+    int length;
+} typedef v3space;
 
 
 int main() {
