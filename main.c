@@ -10,8 +10,12 @@ double noise( int seed, double x ) {
     return frac( sin( x * 209.2342 ) * seed * 839.7301 );
 }
 
+int randint( int seed, double x, int mn, int mx ) {
+    return noise(seed, x) * (mx-mn) + mn;
+}
+
 double step( double v, double size ) {
-    return round( v / size ) * size;
+    return floor( v / size ) * size;
 }
 
 struct vec3 {
@@ -132,33 +136,34 @@ int in_existing_chunk( v3space space, vec3 v, double chunk_size ) {
     return -1;
 }
 
-// length = amount of vectors, not amount of chunks
+
 v3space generate_space( int length, int noise_seed, double chunk_size ) {
-    v3buffer raw_buffer = generate_buffer( length, noise_seed );
     v3space space;
-    space.length = 0;
+    space.length = 1;
     space.chunks = (v3chunk*)malloc(sizeof(v3chunk));
+
     unsigned char first_chunk = 1;
 
-    for ( int i = 0; i < raw_buffer.length; i++ ) {
-        int chunk_id = in_existing_chunk( space, raw_buffer.data[i], chunk_size );
-
-        if ( chunk_id != -1 ) {
-            add_vec3( &space.chunks[chunk_id].buffer, raw_buffer.data[i] );
+    for ( int i = 0; i < length; i++ ) {
+        vec3 v = v3noise( noise_seed, i );
+        int chunk_id = in_existing_chunk(space, v, chunk_size);
+        if ( first_chunk ) {
+            space.chunks[0].position = v3step( v, chunk_size );
+            space.chunks[0].buffer = generate_buffer(1, 0);
+            space.chunks[0].buffer.data[0] = v;
+            first_chunk = 0;
+        } else if ( chunk_id != -1 ) {
+            add_vec3( &space.chunks[chunk_id], v );
         } else {
             v3chunk chunk;
-            chunk.position = v3step( raw_buffer.data[i], chunk_size );
-            chunk.buffer = generate_buffer(1, 0);
-            
-            chunk.buffer.data[0] = raw_buffer.data[i];
-
-            if ( first_chunk ) { first_chunk = 0; space.chunks[0] = chunk; }
-            else add_chunk( &space, chunk );
+            chunk.position = v3step( v, chunk_size );
+            chunk.buffer.length = 1;
+            chunk.buffer.data = (vec3*)malloc(sizeof(vec3));
+            *chunk.buffer.data = v;
+            add_chunk(&space, chunk);
         }
             
     }
-
-    free_buffer(raw_buffer);
 
     return space;
 }
@@ -188,7 +193,7 @@ int main() {
 
     // free_buffer(buffer);
 
-    v3space space = generate_space( 2, 365, 0.3 );
+    v3space space = generate_space( 1, 365, 0.2 );
 
     print_space(space);
 
