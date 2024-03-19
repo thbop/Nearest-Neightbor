@@ -75,13 +75,11 @@ v3buffer generate_buffer( int length, int noise_seed ) {
     return buffer;
 }
 
-v3buffer add_vec3( v3buffer buffer, vec3 v ) {
-    buffer.length++;
-    buffer.data = realloc(buffer.data, buffer.length);
+void add_vec3( v3buffer* buffer, vec3 v ) {
+    buffer->length++;
+    buffer->data = realloc(buffer->data, buffer->length);
 
-    buffer.data[buffer.length-1] = v;
-    
-    return buffer;
+    buffer->data[buffer->length-1] = v;
 }
 
 void print_buffer( v3buffer buffer ) {
@@ -119,13 +117,12 @@ struct v3space {
 } typedef v3space;
 
 // This might be expensive
-v3space add_chunk( v3space space, v3chunk chunk ) {
-    space.length++;
-    space.chunks = realloc(space.chunks, space.length);
+void add_chunk( v3space* space, v3chunk chunk ) {
+    space->length++;
+    space->chunks = realloc(space->chunks, space->length);
 
-    space.chunks[space.length-1] = chunk;
+    space->chunks[space->length-1] = chunk;
 
-    return space;
 }
 
 int in_existing_chunk( v3space space, vec3 v, double chunk_size ) {
@@ -137,7 +134,7 @@ int in_existing_chunk( v3space space, vec3 v, double chunk_size ) {
 
 // length = amount of vectors, not amount of chunks
 v3space generate_space( int length, int noise_seed, double chunk_size ) {
-    v3buffer raw_buffer = generate_buffer( length, noise_seed ); // Don't free this
+    v3buffer raw_buffer = generate_buffer( length, noise_seed );
     v3space space;
     space.length = 0;
     space.chunks = (v3chunk*)malloc(sizeof(v3chunk));
@@ -145,19 +142,23 @@ v3space generate_space( int length, int noise_seed, double chunk_size ) {
 
     for ( int i = 0; i < raw_buffer.length; i++ ) {
         int chunk_id = in_existing_chunk( space, raw_buffer.data[i], chunk_size );
+
         if ( chunk_id != -1 ) {
-            add_vec3( space.chunks[chunk_id].buffer, raw_buffer.data[i] );
+            add_vec3( &space.chunks[chunk_id].buffer, raw_buffer.data[i] );
         } else {
             v3chunk chunk;
             chunk.position = v3step( raw_buffer.data[i], chunk_size );
             chunk.buffer = generate_buffer(1, 0);
+            
             chunk.buffer.data[0] = raw_buffer.data[i];
 
             if ( first_chunk ) { first_chunk = 0; space.chunks[0] = chunk; }
-            else space = add_chunk( space, chunk );
+            else add_chunk( &space, chunk );
         }
             
     }
+
+    free_buffer(raw_buffer);
 
     return space;
 }
@@ -187,10 +188,11 @@ int main() {
 
     // free_buffer(buffer);
 
-    v3space space = generate_space( 100, 31, 0.35 );
+    v3space space = generate_space( 2, 365, 0.3 );
 
-    // print_space(space);
+    print_space(space);
 
     free_space( space );
+
     return 0;
 }
