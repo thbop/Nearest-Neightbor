@@ -22,6 +22,10 @@ vec3 v3subtract( vec3 a, vec3 b ) {
     return (vec3){ a.x-b.x, a.y-b.y, a.z-b.z };
 }
 
+unsigned char v3equals( vec3 a, vec3 b ) {
+    return ( a.x == b.x && a.y == b.y && a.z == b.z );
+}
+
 vec3 v3noise( int seed, double x ) {
     return (vec3){
         noise( seed, x ),
@@ -38,13 +42,13 @@ vec3 v3step( vec3 v, double size ) {
     };
 }
 
-double length( vec3 a ) {
+double v3length( vec3 a ) {
     return sqrt( a.x*a.x + a.y*a.y + a.z*a.z );
 }
 
 double v3distance( vec3 a, vec3 b ) {
     vec3 dis = v3subtract(b, a);
-    return length(dis);
+    return v3length(dis);
 }
 
 void v3print( vec3 v ) {
@@ -60,6 +64,7 @@ struct v3buffer {
 v3buffer generate_buffer( int length, int noise_seed ) {
     v3buffer buffer;
     buffer.length = length;
+    
     if ( noise_seed ) {
         buffer.data = (vec3*)malloc( length * sizeof(vec3) );
         for ( int i = 0; i < length; i++ )
@@ -67,6 +72,15 @@ v3buffer generate_buffer( int length, int noise_seed ) {
     }
     else buffer.data = (vec3*)calloc( length, sizeof(vec3) );
 
+    return buffer;
+}
+
+v3buffer add_vec3( v3buffer buffer, vec3 v ) {
+    buffer.length++;
+    buffer.data = realloc(buffer.data, buffer.length);
+
+    buffer.data[buffer.length-1] = v;
+    
     return buffer;
 }
 
@@ -104,14 +118,79 @@ struct v3space {
     int length;
 } typedef v3space;
 
+// This might be expensive
+v3space add_chunk( v3space space, v3chunk chunk ) {
+    space.length++;
+    space.chunks = realloc(space.chunks, space.length);
+
+    space.chunks[space.length-1] = chunk;
+
+    return space;
+}
+
+int in_existing_chunk( v3space space, vec3 v, double chunk_size ) {
+    for ( int i = 0; i < space.length; i++ ) {
+        if ( v3equals( space.chunks[i].position, v3step(v, chunk_size) ) ) return i;
+    }
+    return -1;
+}
+
+// length = amount of vectors, not amount of chunks
+v3space generate_space( int length, int noise_seed, double chunk_size ) {
+    v3buffer raw_buffer = generate_buffer( length, noise_seed ); // Don't free this
+    v3space space;
+    space.length = 0;
+    space.chunks = (v3chunk*)malloc(sizeof(v3chunk));
+    unsigned char first_chunk = 1;
+
+    for ( int i = 0; i < raw_buffer.length; i++ ) {
+        int chunk_id = in_existing_chunk( space, raw_buffer.data[i], chunk_size );
+        if ( chunk_id != -1 ) {
+            add_vec3( space.chunks[chunk_id].buffer, raw_buffer.data[i] );
+        } else {
+            v3chunk chunk;
+            chunk.position = v3step( raw_buffer.data[i], chunk_size );
+            chunk.buffer = generate_buffer(1, 0);
+            chunk.buffer.data[0] = raw_buffer.data[i];
+
+            if ( first_chunk ) { first_chunk = 0; space.chunks[0] = chunk; }
+            else space = add_chunk( space, chunk );
+        }
+            
+    }
+
+    return space;
+}
+
+void print_space( v3space space ) {
+    for ( int i = 0; i < space.length; i++ ) {
+        printf("\nChunk id: ");
+        v3print( space.chunks[i].position );
+        print_buffer( space.chunks[i].buffer );
+    }
+}
+
+
+void free_space( v3space space ) {
+    for (int i = 0; i < space.length; i++) {
+        free_chunk( space.chunks[i] );
+    }
+}
+
 
 int main() {
-    v3buffer buffer = generate_buffer(100, 34);
-    vec3 a = { 0.43, 0.64, 0.298 };
+    // v3buffer buffer = generate_buffer(100, 34);
+    // vec3 a = { 0.43, 0.64, 0.298 };
 
-    vec3 nearest = nearest_neighbor_linear(buffer, a);
-    v3print(nearest);
+    // vec3 nearest = nearest_neighbor_linear(buffer, a);
+    // v3print(nearest);
 
-    free_buffer(buffer);
+    // free_buffer(buffer);
+
+    v3space space = generate_space( 100, 31, 0.35 );
+
+    // print_space(space);
+
+    free_space( space );
     return 0;
 }
