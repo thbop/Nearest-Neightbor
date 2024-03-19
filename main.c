@@ -105,99 +105,17 @@ vec3 nearest_neighbor_linear( v3buffer buffer, vec3 v ) {
     return nearest;
 }
 
-// A buffer with a position
-struct v3chunk {
-    vec3 position;
-    v3buffer buffer;
-} typedef v3chunk;
-
-void free_chunk( v3chunk chunk ) {
-    free_buffer( chunk.buffer );
-}
-
-struct v3space {
-    v3chunk* chunks;
-    int length;
-} typedef v3space;
-
-// This might be expensive
-void add_chunk( v3space* space, v3chunk chunk ) {
-    space->length++;
-    space->chunks = realloc(space->chunks, space->length);
-
-    space->chunks[space->length-1] = chunk;
-
-}
-
-int in_existing_chunk( v3space space, vec3 v, double chunk_size ) {
-    for ( int i = 0; i < space.length; i++ ) {
-        if ( v3equals( space.chunks[i].position, v3step(v, chunk_size) ) ) return i;
-    }
-    return -1;
-}
-
-
-v3space generate_space( int length, int noise_seed, double chunk_size ) {
-    v3space space;
-    space.length = 1;
-    space.chunks = (v3chunk*)malloc(sizeof(v3chunk));
-
-    unsigned char first_chunk = 1;
-
-    for ( int i = 0; i < length; i++ ) {
-        vec3 v = v3noise( noise_seed, i );
-        int chunk_id = in_existing_chunk(space, v, chunk_size);
-        if ( first_chunk ) {
-            space.chunks[0].position = v3step( v, chunk_size );
-            space.chunks[0].buffer = generate_buffer(1, 0);
-            space.chunks[0].buffer.data[0] = v;
-            first_chunk = 0;
-        } else if ( chunk_id != -1 ) {
-            add_vec3( &space.chunks[chunk_id], v );
-        } else {
-            v3chunk chunk;
-            chunk.position = v3step( v, chunk_size );
-            chunk.buffer.length = 1;
-            chunk.buffer.data = (vec3*)malloc(sizeof(vec3));
-            *chunk.buffer.data = v;
-            add_chunk(&space, chunk);
-        }
-            
-    }
-
-    return space;
-}
-
-void print_space( v3space space ) {
-    for ( int i = 0; i < space.length; i++ ) {
-        printf("\nChunk id: ");
-        v3print( space.chunks[i].position );
-        print_buffer( space.chunks[i].buffer );
-    }
-}
-
-
-void free_space( v3space space ) {
-    for (int i = 0; i < space.length; i++) {
-        free_chunk( space.chunks[i] );
-    }
-}
 
 
 int main() {
-    // v3buffer buffer = generate_buffer(100, 34);
-    // vec3 a = { 0.43, 0.64, 0.298 };
+    v3buffer buffer = generate_buffer(100, 34);
+    vec3 a = { 0.43, 0.64, 0.298 };
 
-    // vec3 nearest = nearest_neighbor_linear(buffer, a);
-    // v3print(nearest);
+    vec3 nearest = nearest_neighbor_linear(buffer, a);
+    v3print(nearest);
 
-    // free_buffer(buffer);
+    free_buffer(buffer);
 
-    v3space space = generate_space( 1, 365, 0.2 );
-
-    print_space(space);
-
-    free_space( space );
 
     return 0;
 }
